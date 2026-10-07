@@ -1,0 +1,10 @@
+<!-- Lab overrides. Anything here overrides /etc/clickhouse-server/config.xml -->
+<clickhouse>
+    <!-- Keep the server log readable at 'information' level; use
+         SET send_logs_level='trace' per-query when you want to see internals. -->
+    <logger>
+        <level>information</level>
+    </logger>
+    <!-- Listen on all interfaces inside the container -->
+    <listen_host>0.0.0.0</listen_host>
+</clickhouse>

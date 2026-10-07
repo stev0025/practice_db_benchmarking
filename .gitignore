@@ -1,0 +1,7 @@
+data/parquet/
+single/volumes/
+cluster/volumes/
+bench/results/
+*.svg
+__pycache__/
+scratch/

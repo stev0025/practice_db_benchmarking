@@ -1,0 +1,56 @@
+# Phase 1, Sessions 1-4: one ClickHouse node + one Postgres (for the row-store contrast).
+# Usage: make up   (or: docker compose -f single/docker-compose.yml up -d)
+#
+# ClickHouse data is bind-mounted to ./volumes/ch so you can poke at parts on disk:
+#   ls single/volumes/ch/store/          (owned by you; container runs as your uid)
+
+name: chsingle
+
+services:
+  ch:
+    image: clickhouse/clickhouse-server:25.8
+    container_name: ch
+    hostname: ch
+    # Run as YOUR uid so data files on the host are owned by you (no sudo to inspect parts).
+    # Also stops the entrypoint from recursively chown-ing the read-only parquet mount.
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    environment:
+      CLICKHOUSE_SKIP_USER_SETUP: "1"      # 'default' user, no password (lab only!)
+    ports:
+      - "8123:8123"   # HTTP  (also serves the built-in dashboard: http://localhost:8123/dashboard)
+      - "9000:9000"   # native TCP protocol (clickhouse-client)
+    volumes:
+      - ./volumes/ch:/var/lib/clickhouse
+      - ./config.d:/etc/clickhouse-server/config.d
+      - ../data/parquet:/var/lib/clickhouse/user_files/parquet:ro
+      - ../data/sql:/sql:ro
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    cap_add:
+      - SYS_NICE      # lets ClickHouse set thread priorities
+      - IPC_LOCK      # mlock of the binary
+      - SYS_PTRACE    # needed for perf / introspection later (Session 6)
+    # No CPU/memory limits on purpose. Session 4 adds them live with `docker update`.
+
+  pg:
+    image: postgres:16-alpine
+    container_name: pg
+    environment:
+      POSTGRES_PASSWORD: bench
+      POSTGRES_DB: bench
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./volumes/pg:/var/lib/postgresql/data
+      - ../data/sql:/sql:ro
+    shm_size: 4g
+    # Fair-ish tuning: Postgres defaults (128MB shared_buffers, 2 parallel workers) would
+    # make the comparison a strawman. Honest benchmarking = tune both sides.
+    command: >
+      postgres
+      -c shared_buffers=4GB
+      -c effective_cache_size=16GB
+      -c work_mem=256MB
+      -c max_parallel_workers_per_gather=8
+      -c max_parallel_workers=16
+      -c max_worker_processes=16
