@@ -14,7 +14,7 @@ CREATE TABLE bench.hits_by_user
     SearchPhrase String
 )
 ENGINE = MergeTree
-ORDER BY ( UserID, EventTime, CounterID );
+ORDER BY ( UserID, EventTime );
 
 INSERT INTO bench.hits_by_user
 SELECT UserID, EventTime, CounterID, URL, SearchPhrase FROM bench.hits;
@@ -26,9 +26,9 @@ EXPLAIN indexes = 1 SELECT count() FROM bench.hits_by_user WHERE CounterID = 62;
 
 -- | query                          | my guess (granules) | actual | why |
 -- |--------------------------------|---------------------|--------|-----|
--- | hits         WHERE UserID=...  |   80                  |  652      |     |
--- | hits_by_user WHERE UserID=...  |     80                |    652    |     |
--- | hits_by_user WHERE CounterID=62|    a lot                 | 613490       |     |
+-- | hits         WHERE UserID=...  |   btween 100-200                  | 114       | this is 3rd sorting order. it takes a while    |
+-- | hits_by_user WHERE UserID=...  |      1               |   10     | this is 1st sorting order. it's fast    |
+-- | hits_by_user WHERE CounterID=62|     1234                |   1227     | userID is unique. so CounterID as sorting key or as 3rd key does not matter at all    |
 
 -- BONUS: compare compression of the same column in both tables. Why does it differ?
 -- SELECT table, name, formatReadableSize(data_compressed_bytes) FROM system.columns
