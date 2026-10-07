@@ -18,7 +18,25 @@ Grows after every session. Crisp, sayable-out-loud talking points. Numbers are *
 - _Still shaky: why columns compress 3x vs 100x+ (redo Q4)._
 
 ## 2. Where query time goes
-_(filled after Session 2)_
+- **Triage hierarchy:**
+  1. Active query: `system.processes` vs finished query: `system.query_log`.
+  2. Data volume: check `read_rows` & `read_bytes` against expected index skipping.
+  3. ProfileEvents: identify hardware bottleneck (Disk vs CPU vs Lock).
+- **Disk vs Page Cache:** ClickHouse has no giant user-space table buffer pool (no double buffering like Postgres `shared_buffers`). It relies directly on Linux OS page cache for `.bin` column data.
+  - Page cache hit: `ProfileEvents['OSReadChars'] > 0` and `ProfileEvents['OSReadBytes'] == 0`.
+  - Cold read: `ProfileEvents['OSReadBytes'] ≈ ProfileEvents['OSReadChars']`, NVMe throughput visible on `iostat -xz 1`.
+- **Internal caches:** ClickHouse keeps **`mark_cache`** (pins tiny `.mrk2` index mark offsets in RAM so planning never touches disk) and optional **`uncompressed_cache`** (avoids LZ4 CPU decompression on hot repeated queries).
+- **CPU-bound vs I/O-bound detection:**
+  - Effective cores used = `(UserTimeMicroseconds + SystemTimeMicroseconds) / RealTimeMicroseconds`.
+  - If ratio ≈ `max_threads` (10-16 on 16 cores): CPU-bound (decompression, vector filters, hash tables).
+  - If ratio << 1.0 and `OSReadBytes > 0`: I/O-bound waiting on physical storage.
+- **Execution pipeline & threading:**
+  - `EXPLAIN PIPELINE` reveals the DAG of processors and parallel stream count `(× N)`.
+  - Governed by `max_threads` (default: CPU core count). High concurrency workloads benefit from capping `max_threads` (e.g. 2–4) to prevent context-switching storms.
+- **Memory pressure & spilling:**
+  - When memory hits limit, default is fail (`MEMORY_LIMIT_EXCEEDED`).
+  - Spilling to disk: set `max_bytes_before_external_group_by` and `max_bytes_before_external_sort` to dump intermediate hash states to `/var/lib/clickhouse/tmp/` and merge on disk.
+
 
 ## 3. Benchmarking methodology
 _(filled after Session 3)_
