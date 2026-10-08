@@ -38,10 +38,9 @@ def calculate_percentile(sorted_data: List[float], p: float) -> float:
     """
     if not sorted_data:
         return 0.0
-    # Hint: index = int(round(p * (len(sorted_data) - 1)))
-    # return sorted_data[index]
-    # TODO(you): fill in the calculation below:
-    return 0.0
+    
+    index = int(round(p * (len(sorted_data) - 1)))
+    return sorted_data[index]
 
 
 def calculate_stats(timings_ms: List[float]) -> Dict[str, float]:
@@ -54,9 +53,8 @@ def calculate_stats(timings_ms: List[float]) -> Dict[str, float]:
     variance = sum((x - mean_val) ** 2 for x in sorted_times) / (n - 1) if n > 1 else 0.0
     stddev = math.sqrt(variance)
 
-    # TODO(you): Calculate Coefficient of Variation (CoV = stddev / mean * 100)
-    # A benchmark with CoV > 10% is usually considered noisy / unstable.
-    cov = 0.0  # TODO(you): replace with stddev / mean_val * 100
+    # Calculate Coefficient of Variation
+    cov = (stddev / mean_val * 100) if mean_val else 0.0
 
     p50 = calculate_percentile(sorted_times, 0.50)
     p95 = calculate_percentile(sorted_times, 0.95)
@@ -78,13 +76,9 @@ def benchmark_query(name: str, sql: str, warmup_runs: int = 2, iterations: int =
     print(f"\n>> Benchmarking: {name}")
     print(f"   Query: {sql[:65]}...")
 
-    # TODO(you): Implement warmup runs.
-    # Why? The first 1-2 runs populate the OS page cache and mark_cache.
-    # Discard timings from warmup runs so they don't corrupt the warm benchmark results.
-    # for _ in range(warmup_runs):
-    #     execute_query(sql)
-    # TODO(you): Execute warmup runs here:
-    pass
+    # Warmup runs, as the first 1-2 runs populate the OS page cache and mark_cache
+    for i in range(warmup_runs):
+        execute_query(sql)
 
     # Measured runs
     timings: List[float] = []
@@ -112,7 +106,7 @@ def main():
     print("Starting ClickHouse Benchmark Harness...")
     results = []
     for name, sql in QUERIES:
-        stats = benchmark_query(name, sql, warmup_runs=2, iterations=10)
+        stats = benchmark_query(name, sql, warmup_runs=2, iterations=100)
         stats["name"] = name
         results.append(stats)
     print_report(results)

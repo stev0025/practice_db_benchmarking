@@ -39,7 +39,11 @@ Grows after every session. Crisp, sayable-out-loud talking points. Numbers are *
 
 
 ## 3. Benchmarking methodology
-_(filled after Session 3)_
+- **Never report a mean alone.** It hides the tail and bimodal behaviour. Report min, p50, p95, p99 + CoV + sample count. p99 needs >=100 samples to mean anything (with 10, p95 = p99 = max).
+- **CoV = stddev / mean.** My own run: 7 ms query had CoV 86% (one 70 ms outlier), 200 ms query ~7-20%. Short queries amplify noise. Fix: more iterations, reuse one HTTP session, quiet the host, then re-check p50 stability across runs (<10-15%).
+- **Concurrency knee:** QPS rises ~linearly to core count, then plateaus. p99 stays flat then climbs (queueing: roughly concurrency/cores x service time). Past the knee extra clients only add run-queue wait + context switches + cache thrash. Always plot QPS vs p99 and pick load just before the knee.
+- **Cold vs warm:** layers = OS page cache, mark cache, uncompressed cache. ClickBench runs each query 3x (first after drop_caches = cold, other two warm). Don't "always clear caches"; report cold and warm separately.
+- **Coordinated omission:** closed-loop client waits for each reply before sending the next, so a server stall suppresses the very requests that would have been slow. Stall shows as 1 bad sample, not many. Fix: open-loop at fixed arrival rate, measure latency from the *intended* send time (wrk2, HdrHistogram).
 
 ## 4. Capacity sizing
 _(filled after Session 4)_
